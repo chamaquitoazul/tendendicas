@@ -164,8 +164,8 @@ const TOKEN_CONTRACT_ABI = [
 ];
 
 // Direcciones de los contratos (reemplaza con las tuyas después de deployar)
-const VOTING_CONTRACT_ADDRESS = "";
-const TOKEN_CONTRACT_ADDRESS = ""; // Actualiza con tu dirección
+const VOTING_CONTRACT_ADDRESS = "0xde0b71BAED8F2059077c1B72CEa525b9185E5B7d";
+const TOKEN_CONTRACT_ADDRESS = "0x5Cd4e9d0ffad11dDd497029E8720d538Bc8Bd479"; 
 
 const VotingPlatform = () => {
   // Estados principales
