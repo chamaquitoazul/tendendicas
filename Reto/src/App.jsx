@@ -526,7 +526,7 @@ const VotingPlatform = () => {
         <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="text-sm text-gray-500">
-              © 2024 VoteChain - Plataforma de Voto Electrónico Basada en Blockchain
+              Plataforma de Voto Electrónico Basada en Blockchain
             </div>
             <div className="flex items-center space-x-4 mt-4 md:mt-0">
               <div className="text-xs text-gray-400">

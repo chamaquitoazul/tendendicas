@@ -19,7 +19,7 @@ const AdminScreen = ({
 
   const handleAuth = (e) => {
     e.preventDefault();
-    if (password === '123456789') {
+    if (password === '1116661') {
       setIsAuthenticated(true);
       setAuthError('');
     } else {
