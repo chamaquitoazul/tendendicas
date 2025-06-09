@@ -297,7 +297,45 @@ const VotingPlatform = () => {
     }
   };
 
-  // Cargar datos de votación
+  // Función de debugging temporal
+  const debugContractState = async () => {
+    if (!votingContract) {
+      console.log("❌ Contract not connected");
+      return;
+    }
+
+    try {
+      console.log("🔍 DEBUGGING CONTRACT STATE:");
+      
+      // Estado básico
+      const isActive = await votingContract.methods.votingActive().call();
+      console.log("- Voting Active:", isActive);
+      
+      // Candidatos
+      const allCandidates = await votingContract.methods.getAllCandidates().call();
+      console.log("- Candidates:", allCandidates);
+      console.log("- Candidate Count:", allCandidates.length);
+      
+      // Resultados
+      const results = await votingContract.methods.getResults().call();
+      console.log("- Results:", results);
+      
+      // Votos totales
+      const totalVotes = await votingContract.methods.getTotalVotes().call();
+      console.log("- Total Votes:", totalVotes.toString());
+      
+      // Usuario ha votado
+      if (userAddress) {
+        const hasUserVotedState = await votingContract.methods.hasVoted(userAddress).call();
+        console.log("- User has voted:", hasUserVotedState);
+      }
+      
+      console.log("✅ Debug complete");
+      
+    } catch (error) {
+      console.error("❌ Debug error:", error);
+    }
+  };
   const loadVotingData = async (votingContractInstance = votingContract, address = userAddress) => {
     try {
       if (votingContractInstance) {
@@ -305,9 +343,21 @@ const VotingPlatform = () => {
         const isActive = await votingContractInstance.methods.votingActive().call();
         setVotingActive(isActive);
         
-        // Verificar si el usuario ya votó
+        // Verificar si el usuario ya votó EN LA VERSIÓN ACTUAL de la elección
         if (address) {
-          const userHasVoted = await votingContractInstance.methods.hasVoted(address).call();
+          let userHasVoted = false;
+          try {
+            // Intentar usar la nueva función si existe
+            userHasVoted = await votingContractInstance.methods.hasVotedInCurrentElection(address).call();
+          } catch (error) {
+            // Fallback a la función original si no existe la nueva
+            try {
+              userHasVoted = await votingContractInstance.methods.hasVoted(address).call();
+            } catch (err) {
+              console.log("Error checking vote status:", err);
+              userHasVoted = false;
+            }
+          }
           setHasUserVoted(userHasVoted);
         }
         
@@ -334,9 +384,12 @@ const VotingPlatform = () => {
           // Actualizar estado de votación del usuario
           if (userHasVoted) {
             setVotedElections(new Set([1]));
+          } else {
+            setVotedElections(new Set());
           }
         } else {
           setElections([]);
+          setVotedElections(new Set());
         }
       }
     } catch (error) {
@@ -364,7 +417,9 @@ const VotingPlatform = () => {
     try {
       setLoading(true);
       const decimals = await tokenContract.methods.decimals().call();
-      const transferAmount = Web3.utils.toBN(amount).mul(Web3.utils.toBN(10).pow(Web3.utils.toBN(decimals)));
+      
+      // ✅ SOLUCIÓN: Usar BigInt en lugar de Web3.utils.toBN
+      const transferAmount = BigInt(amount) * BigInt(10 ** parseInt(decimals));
       
       await tokenContract.methods.transfer(recipient, transferAmount.toString()).send({ from: userAddress });
       alert('Tokens transferidos exitosamente!');
@@ -660,6 +715,7 @@ const VotingPlatform = () => {
             toggleVoting={toggleVoting}
             removeCandidate={removeCandidate}
             resetElection={resetElection}
+            debugContractState={debugContractState}
           />
         )}
       </main>

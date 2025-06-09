@@ -12,15 +12,13 @@ const AdminScreen = ({
   votingActive,
   addCandidate,
   toggleVoting,
-  removeCandidate: removeCandidateFromContract, // Renombrar para evitar conflicto
-  resetElection // Nueva función para resetear la elección completa
+  removeCandidate: removeCandidateFromContract // Renombrar para evitar conflicto
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [candidateToDelete, setCandidateToDelete] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const handleAuth = (e) => {
     e.preventDefault();
@@ -81,24 +79,6 @@ const AdminScreen = ({
   const cancelDelete = () => {
     setShowDeleteConfirm(false);
     setCandidateToDelete('');
-  };
-
-  // Confirmar reset de elección
-  const confirmResetElection = () => {
-    setShowResetConfirm(true);
-  };
-
-  // Ejecutar reset de elección
-  const executeResetElection = async () => {
-    if (resetElection) {
-      await resetElection();
-      setShowResetConfirm(false);
-    }
-  };
-
-  // Cancelar reset
-  const cancelReset = () => {
-    setShowResetConfirm(false);
   };
 
   if (!isAuthenticated) {
@@ -194,48 +174,6 @@ const AdminScreen = ({
           </div>
         </div>
       )}
-
-      {/* Modal de confirmación para resetear elección */}
-      {showResetConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-center space-x-3 mb-4">
-              <AlertTriangle className="h-8 w-8 text-red-600" />
-              <h3 className="text-lg font-semibold text-gray-900">⚠️ RESETEAR ELECCIÓN COMPLETA</h3>
-            </div>
-            <div className="mb-6">
-              <p className="text-red-600 font-semibold mb-2">
-                ¡ADVERTENCIA! Esta acción es IRREVERSIBLE.
-              </p>
-              <p className="text-gray-600 mb-2">
-                Al resetear la elección se eliminará:
-              </p>
-              <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-                <li>Todos los candidatos ({candidates.length} candidatos)</li>
-                <li>Todos los votos registrados</li>
-                <li>Todo el historial de la elección</li>
-              </ul>
-              <p className="text-red-600 text-sm mt-3 font-medium">
-                Esta acción NO se puede deshacer.
-              </p>
-            </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={executeResetElection}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
-              >
-                SÍ, RESETEAR TODO
-              </button>
-              <button
-                onClick={cancelReset}
-                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 py-2 px-4 rounded-lg font-medium transition-colors"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       
       {!isConnected && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -270,23 +208,6 @@ const AdminScreen = ({
               } disabled:bg-gray-400`}
             >
               {votingActive ? 'Desactivar Votación' : 'Activar Votación'}
-            </button>
-          </div>
-          
-          {/* Botón de Reset de Elección */}
-          <div className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div>
-              <h4 className="font-medium text-red-900">Resetear Elección Completa</h4>
-              <p className="text-sm text-red-700">
-                Elimina todos los candidatos y votos. ⚠️ Acción irreversible
-              </p>
-            </div>
-            <button
-              onClick={confirmResetElection}
-              disabled={!isConnected || votingActive}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
-            >
-              Resetear Todo
             </button>
           </div>
           
