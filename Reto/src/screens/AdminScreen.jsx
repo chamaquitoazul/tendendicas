@@ -1,6 +1,6 @@
 // src/screens/AdminScreen.jsx
 import React, { useState } from 'react';
-import { Plus, Eye, Lock } from 'lucide-react';
+import { Plus, Eye, Lock, Trash2, AlertTriangle } from 'lucide-react';
 
 const AdminScreen = ({ 
   isConnected, 
@@ -11,11 +11,16 @@ const AdminScreen = ({
   candidates,
   votingActive,
   addCandidate,
-  toggleVoting
+  toggleVoting,
+  removeCandidate: removeCandidateFromContract, // Renombrar para evitar conflicto
+  resetElection // Nueva función para resetear la elección completa
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
+  const [candidateToDelete, setCandidateToDelete] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const handleAuth = (e) => {
     e.preventDefault();
@@ -49,12 +54,51 @@ const AdminScreen = ({
     setNewElection({ ...newElection, candidates: newCandidates });
   };
 
-  // Remover candidato
-  const removeCandidate = (index) => {
+  // Remover candidato del formulario
+  const removeCandidateFromForm = (index) => {
     if (newElection.candidates.length > 2) {
       const newCandidates = newElection.candidates.filter((_, i) => i !== index);
       setNewElection({ ...newElection, candidates: newCandidates });
     }
+  };
+
+  // Confirmar eliminación de candidato
+  const confirmDeleteCandidate = (candidateName) => {
+    setCandidateToDelete(candidateName);
+    setShowDeleteConfirm(true);
+  };
+
+  // Ejecutar eliminación de candidato
+  const executeDeleteCandidate = async () => {
+    if (candidateToDelete && removeCandidateFromContract) {
+      await removeCandidateFromContract(candidateToDelete);
+      setShowDeleteConfirm(false);
+      setCandidateToDelete('');
+    }
+  };
+
+  // Cancelar eliminación
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setCandidateToDelete('');
+  };
+
+  // Confirmar reset de elección
+  const confirmResetElection = () => {
+    setShowResetConfirm(true);
+  };
+
+  // Ejecutar reset de elección
+  const executeResetElection = async () => {
+    if (resetElection) {
+      await resetElection();
+      setShowResetConfirm(false);
+    }
+  };
+
+  // Cancelar reset
+  const cancelReset = () => {
+    setShowResetConfirm(false);
   };
 
   if (!isAuthenticated) {
@@ -120,6 +164,78 @@ const AdminScreen = ({
           Cerrar Sesión Admin
         </button>
       </div>
+
+      {/* Modal de confirmación para eliminar candidato */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center space-x-3 mb-4">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Confirmar Eliminación</h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              ¿Estás seguro de que quieres eliminar al candidato "{candidateToDelete}"? 
+              Esta acción no se puede deshacer y se perderán todos los votos asociados.
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={executeDeleteCandidate}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+              >
+                Eliminar
+              </button>
+              <button
+                onClick={cancelDelete}
+                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 py-2 px-4 rounded-lg font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación para resetear elección */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center space-x-3 mb-4">
+              <AlertTriangle className="h-8 w-8 text-red-600" />
+              <h3 className="text-lg font-semibold text-gray-900">⚠️ RESETEAR ELECCIÓN COMPLETA</h3>
+            </div>
+            <div className="mb-6">
+              <p className="text-red-600 font-semibold mb-2">
+                ¡ADVERTENCIA! Esta acción es IRREVERSIBLE.
+              </p>
+              <p className="text-gray-600 mb-2">
+                Al resetear la elección se eliminará:
+              </p>
+              <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+                <li>Todos los candidatos ({candidates.length} candidatos)</li>
+                <li>Todos los votos registrados</li>
+                <li>Todo el historial de la elección</li>
+              </ul>
+              <p className="text-red-600 text-sm mt-3 font-medium">
+                Esta acción NO se puede deshacer.
+              </p>
+            </div>
+            <div className="flex space-x-3">
+              <button
+                onClick={executeResetElection}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+              >
+                SÍ, RESETEAR TODO
+              </button>
+              <button
+                onClick={cancelReset}
+                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 py-2 px-4 rounded-lg font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {!isConnected && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -138,6 +254,11 @@ const AdminScreen = ({
               <p className="text-sm text-gray-600">
                 {votingActive ? 'La votación está activa' : 'La votación está inactiva'}
               </p>
+              {votingActive && (
+                <p className="text-xs text-red-600 mt-1">
+                  ⚠️ No se pueden eliminar candidatos mientras la votación esté activa
+                </p>
+              )}
             </div>
             <button
               onClick={toggleVoting}
@@ -149,6 +270,23 @@ const AdminScreen = ({
               } disabled:bg-gray-400`}
             >
               {votingActive ? 'Desactivar Votación' : 'Activar Votación'}
+            </button>
+          </div>
+          
+          {/* Botón de Reset de Elección */}
+          <div className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div>
+              <h4 className="font-medium text-red-900">Resetear Elección Completa</h4>
+              <p className="text-sm text-red-700">
+                Elimina todos los candidatos y votos. ⚠️ Acción irreversible
+              </p>
+            </div>
+            <button
+              onClick={confirmResetElection}
+              disabled={!isConnected || votingActive}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+            >
+              Resetear Todo
             </button>
           </div>
           
@@ -256,7 +394,7 @@ const AdminScreen = ({
                   />
                   {newElection.candidates.length > 2 && (
                     <button
-                      onClick={() => removeCandidate(index)}
+                      onClick={() => removeCandidateFromForm(index)}
                       className="text-red-600 hover:text-red-800 px-2 py-2"
                     >
                       ✕
@@ -280,7 +418,7 @@ const AdminScreen = ({
         </div>
       </div>
       
-      {/* Lista de Candidatos Actuales */}
+      {/* Lista de Candidatos Actuales con opción de eliminar */}
       <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-semibold text-gray-900">Candidatos Registrados</h3>
@@ -295,9 +433,21 @@ const AdminScreen = ({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {candidates.map((candidate, index) => (
                 <div key={index} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                  <div className="font-medium text-gray-900 mb-2">{candidate}</div>
-                  <div className="text-sm text-gray-500">
-                    Candidato #{index + 1}
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900 mb-2">{candidate}</div>
+                      <div className="text-sm text-gray-500">
+                        Candidato #{index + 1}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => confirmDeleteCandidate(candidate)}
+                      disabled={votingActive || !isConnected}
+                      className="ml-3 p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={votingActive ? "No se puede eliminar durante votación activa" : "Eliminar candidato"}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -309,6 +459,14 @@ const AdminScreen = ({
             </div>
           )}
         </div>
+
+        {votingActive && candidates.length > 0 && (
+          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-yellow-800 text-sm">
+              ⚠️ La votación está activa. Desactívala primero para poder eliminar candidatos.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Lista de Elecciones Existentes */}

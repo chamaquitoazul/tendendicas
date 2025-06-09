@@ -91,6 +91,27 @@ const VOTING_CONTRACT_ABI = [
     "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
     "stateMutability": "view",
     "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getCandidateCount",
+    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "resetElection",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "address", "name": "newOwner", "type": "address"}],
+    "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   }
 ];
 
@@ -125,7 +146,7 @@ const TOKEN_CONTRACT_ABI = [
     "type": "function"
   },
   {
-    "inputs": [{"internalType": "address", "name": "owner", "type": "address"}],
+    "inputs": [{"internalType": "address", "name": "account", "type": "address"}],
     "name": "balanceOf",
     "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
     "stateMutability": "view",
@@ -160,6 +181,33 @@ const TOKEN_CONTRACT_ABI = [
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "address", "name": "account", "type": "address"}],
+    "name": "isOwner",
+    "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "address", "name": "newOwner", "type": "address"}],
+    "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getTokenInfo",
+    "outputs": [
+      {"internalType": "string", "name": "tokenName", "type": "string"},
+      {"internalType": "string", "name": "tokenSymbol", "type": "string"},
+      {"internalType": "uint8", "name": "tokenDecimals", "type": "uint8"},
+      {"internalType": "uint256", "name": "tokenTotalSupply", "type": "uint256"},
+      {"internalType": "address", "name": "contractOwner", "type": "address"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
   }
 ];
 
@@ -192,6 +240,7 @@ const VotingPlatform = () => {
   const [votingActive, setVotingActive] = useState(false);
   const [candidates, setCandidates] = useState([]);
   const [voteCounts, setVoteCounts] = useState([]);
+  const [hasUserVoted, setHasUserVoted] = useState(false);
 
   // Conectar con MetaMask
   const connectWallet = async () => {
@@ -221,7 +270,7 @@ const VotingPlatform = () => {
         
         // Cargar datos
         await loadTokenBalance(tokenContractInstance, accounts[0]);
-        await loadVotingData(votingContractInstance);
+        await loadVotingData(votingContractInstance, accounts[0]);
         
         setLoading(false);
       } else {
@@ -249,12 +298,18 @@ const VotingPlatform = () => {
   };
 
   // Cargar datos de votación
-  const loadVotingData = async (votingContractInstance = votingContract) => {
+  const loadVotingData = async (votingContractInstance = votingContract, address = userAddress) => {
     try {
       if (votingContractInstance) {
         // Verificar si la votación está activa
         const isActive = await votingContractInstance.methods.votingActive().call();
         setVotingActive(isActive);
+        
+        // Verificar si el usuario ya votó
+        if (address) {
+          const userHasVoted = await votingContractInstance.methods.hasVoted(address).call();
+          setHasUserVoted(userHasVoted);
+        }
         
         // Obtener candidatos y resultados
         const results = await votingContractInstance.methods.getResults().call();
@@ -275,6 +330,11 @@ const VotingPlatform = () => {
             totalVotes: totalVotes
           };
           setElections([election]);
+          
+          // Actualizar estado de votación del usuario
+          if (userHasVoted) {
+            setVotedElections(new Set([1]));
+          }
         } else {
           setElections([]);
         }
@@ -347,6 +407,26 @@ const VotingPlatform = () => {
     }
   };
 
+  // Remover candidato
+  const removeCandidate = async (candidateName) => {
+    if (votingActive) {
+      alert('No se puede eliminar candidatos mientras la votación esté activa');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      await votingContract.methods.removeCandidate(candidateName).send({ from: userAddress });
+      alert('Candidato eliminado exitosamente!');
+      await loadVotingData();
+      setLoading(false);
+    } catch (error) {
+      console.error('Error removing candidate:', error);
+      alert('Error al eliminar candidato: ' + error.message);
+      setLoading(false);
+    }
+  };
+
   // Activar/desactivar votación
   const toggleVoting = async () => {
     try {
@@ -368,6 +448,11 @@ const VotingPlatform = () => {
       alert('Necesitas tokens VTE para votar');
       return;
     }
+
+    if (hasUserVoted) {
+      alert('Ya has votado en esta elección');
+      return;
+    }
     
     try {
       setLoading(true);
@@ -376,6 +461,7 @@ const VotingPlatform = () => {
       
       alert('Voto registrado exitosamente!');
       setVotedElections(new Set([...votedElections, electionId]));
+      setHasUserVoted(true);
       
       // Recargar datos
       await loadVotingData();
@@ -421,6 +507,33 @@ const VotingPlatform = () => {
     }
   };
 
+  // Resetear elección (función de emergencia)
+  const resetElection = async () => {
+    if (votingActive) {
+      alert('No se puede resetear la elección mientras la votación esté activa');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      '¿Estás seguro de que quieres resetear toda la elección? ' +
+      'Esto eliminará todos los candidatos y votos. Esta acción no se puede deshacer.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setLoading(true);
+      await votingContract.methods.resetElection().send({ from: userAddress });
+      alert('Elección reseteada exitosamente!');
+      await loadVotingData();
+      setLoading(false);
+    } catch (error) {
+      console.error('Error resetting election:', error);
+      alert('Error al resetear la elección: ' + error.message);
+      setLoading(false);
+    }
+  };
+
   // Desconectar wallet
   const disconnectWallet = () => {
     setIsConnected(false);
@@ -433,6 +546,7 @@ const VotingPlatform = () => {
     setVotedElections(new Set());
     setCandidates([]);
     setVoteCounts([]);
+    setHasUserVoted(false);
   };
 
   // Detectar cambios de cuenta en MetaMask
@@ -443,13 +557,39 @@ const VotingPlatform = () => {
           disconnectWallet();
         } else {
           setUserAddress(accounts[0]);
-          if (tokenContract) {
+          if (tokenContract && votingContract) {
             loadTokenBalance(tokenContract, accounts[0]);
+            loadVotingData(votingContract, accounts[0]);
           }
         }
       });
+
+      // Detectar cambios de red
+      window.ethereum.on('chainChanged', (chainId) => {
+        window.location.reload();
+      });
     }
-  }, [tokenContract]);
+
+    // Cleanup
+    return () => {
+      if (window.ethereum) {
+        window.ethereum.removeAllListeners('accountsChanged');
+        window.ethereum.removeAllListeners('chainChanged');
+      }
+    };
+  }, [tokenContract, votingContract]);
+
+  // Cargar datos automáticamente cada 30 segundos si está conectado
+  useEffect(() => {
+    if (isConnected && votingContract && tokenContract) {
+      const interval = setInterval(() => {
+        loadVotingData();
+        loadTokenBalance();
+      }, 30000); // 30 segundos
+
+      return () => clearInterval(interval);
+    }
+  }, [isConnected, votingContract, tokenContract]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 w-full flex flex-col">
@@ -490,6 +630,7 @@ const VotingPlatform = () => {
             votedElections={votedElections}
             vote={vote}
             tokenBalance={tokenBalance}
+            hasUserVoted={hasUserVoted}
           />
         )}
 
@@ -517,6 +658,8 @@ const VotingPlatform = () => {
             votingActive={votingActive}
             addCandidate={addCandidate}
             toggleVoting={toggleVoting}
+            removeCandidate={removeCandidate}
+            resetElection={resetElection}
           />
         )}
       </main>
