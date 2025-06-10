@@ -10,6 +10,10 @@ import UserScreen from './screens/UserScreen';
 import AdminScreen from './screens/AdminScreen';
 import TokenScreen from './screens/TokenScreen';
 
+// CONSTANTES DEL SISTEMA DE QUEMADO DE TOKENS
+const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
+const VOTE_COST = 1; // 1 VTE por voto
+
 // ABI del contrato de votación actualizado
 const VOTING_CONTRACT_ABI = [
   {
@@ -181,38 +185,11 @@ const TOKEN_CONTRACT_ABI = [
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
-  },
-  {
-    "inputs": [{"internalType": "address", "name": "account", "type": "address"}],
-    "name": "isOwner",
-    "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [{"internalType": "address", "name": "newOwner", "type": "address"}],
-    "name": "transferOwnership",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getTokenInfo",
-    "outputs": [
-      {"internalType": "string", "name": "tokenName", "type": "string"},
-      {"internalType": "string", "name": "tokenSymbol", "type": "string"},
-      {"internalType": "uint8", "name": "tokenDecimals", "type": "uint8"},
-      {"internalType": "uint256", "name": "tokenTotalSupply", "type": "uint256"},
-      {"internalType": "address", "name": "contractOwner", "type": "address"}
-    ],
-    "stateMutability": "view",
-    "type": "function"
   }
 ];
 
 // Direcciones de los contratos (reemplaza con las tuyas después de deployar)
-const VOTING_CONTRACT_ADDRESS = "0xde0b71BAED8F2059077c1B72CEa525b9185E5B7d";
+const VOTING_CONTRACT_ADDRESS = "0xcc42105EBf3a54371F6B380955946818BcbA1519";
 const TOKEN_CONTRACT_ADDRESS = "0x5Cd4e9d0ffad11dDd497029E8720d538Bc8Bd479"; 
 
 const VotingPlatform = () => {
@@ -297,45 +274,7 @@ const VotingPlatform = () => {
     }
   };
 
-  // Función de debugging temporal
-  const debugContractState = async () => {
-    if (!votingContract) {
-      console.log("❌ Contract not connected");
-      return;
-    }
-
-    try {
-      console.log("🔍 DEBUGGING CONTRACT STATE:");
-      
-      // Estado básico
-      const isActive = await votingContract.methods.votingActive().call();
-      console.log("- Voting Active:", isActive);
-      
-      // Candidatos
-      const allCandidates = await votingContract.methods.getAllCandidates().call();
-      console.log("- Candidates:", allCandidates);
-      console.log("- Candidate Count:", allCandidates.length);
-      
-      // Resultados
-      const results = await votingContract.methods.getResults().call();
-      console.log("- Results:", results);
-      
-      // Votos totales
-      const totalVotes = await votingContract.methods.getTotalVotes().call();
-      console.log("- Total Votes:", totalVotes.toString());
-      
-      // Usuario ha votado
-      if (userAddress) {
-        const hasUserVotedState = await votingContract.methods.hasVoted(userAddress).call();
-        console.log("- User has voted:", hasUserVotedState);
-      }
-      
-      console.log("✅ Debug complete");
-      
-    } catch (error) {
-      console.error("❌ Debug error:", error);
-    }
-  };
+  // Cargar datos de votación
   const loadVotingData = async (votingContractInstance = votingContract, address = userAddress) => {
     try {
       if (votingContractInstance) {
@@ -395,6 +334,97 @@ const VotingPlatform = () => {
     } catch (error) {
       console.error('Error loading voting data:', error);
     }
+  };
+
+  // 🔥 FUNCIÓN PRINCIPAL: VOTAR CON QUEMADO DE TOKENS
+  const voteWithTokenBurn = async (electionId, candidateIndex) => {
+    // ✅ VERIFICACIONES INICIALES
+    if (tokenBalance < VOTE_COST) {
+      alert(`❌ Necesitas al menos ${VOTE_COST} tokens VTE para votar.\nTienes: ${tokenBalance} VTE\nCosto: ${VOTE_COST} VTE`);
+      return;
+    }
+
+    if (hasUserVoted) {
+      alert('❌ Ya has votado en esta elección');
+      return;
+    }
+
+    if (!votingActive) {
+      alert('❌ La votación no está activa');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      
+      // ✅ PASO 1: QUEMAR TOKENS VTE (transferir a dirección burn)
+      console.log(`🔥 Paso 1: Quemando ${VOTE_COST} tokens VTE...`);
+      
+      const decimals = await tokenContract.methods.decimals().call();
+      const burnAmount = BigInt(VOTE_COST) * BigInt(10 ** parseInt(decimals));
+      
+      // Transferir tokens a dirección burn
+      console.log(`Transfiriendo ${burnAmount.toString()} wei a ${BURN_ADDRESS}`);
+      
+      const burnTx = await tokenContract.methods.transfer(BURN_ADDRESS, burnAmount.toString()).send({ 
+        from: userAddress 
+      });
+      
+      console.log(`✅ ${VOTE_COST} tokens VTE quemados exitosamente. TX: ${burnTx.transactionHash}`);
+      
+      // ✅ PASO 2: REGISTRAR EL VOTO EN EL CONTRATO
+      console.log(`🗳️  Paso 2: Registrando voto...`);
+      
+      const candidateName = candidates[candidateIndex];
+      const voteTx = await votingContract.methods.vote(candidateName).send({ from: userAddress });
+      
+      console.log(`✅ Voto registrado exitosamente. TX: ${voteTx.transactionHash}`);
+      
+      // ✅ PASO 3: ACTUALIZAR ESTADO LOCAL
+      setVotedElections(new Set([...votedElections, electionId]));
+      setHasUserVoted(true);
+      
+      // ✅ PASO 4: MOSTRAR CONFIRMACIÓN
+      alert(`🎉 ¡Voto registrado exitosamente!\n\n` +
+            `• Candidato: ${candidateName}\n` +
+            `• Tokens consumidos: ${VOTE_COST} VTE\n` +
+            `• Nuevo balance: ${tokenBalance - VOTE_COST} VTE`);
+      
+      // ✅ PASO 5: RECARGAR DATOS
+      await loadVotingData();
+      await loadTokenBalance(); // ← Balance reducido
+      
+      setLoading(false);
+      
+    } catch (error) {
+      console.error('Error voting with token burn:', error);
+      
+      // Mensaje de error más detallado
+      let errorMessage = 'Error al votar: ';
+      if (error.message.includes('insufficient funds')) {
+        errorMessage += 'Fondos insuficientes para pagar gas fees';
+      } else if (error.message.includes('User denied')) {
+        errorMessage += 'Transacción cancelada por el usuario';
+      } else if (error.message.includes('revert')) {
+        errorMessage += 'Transacción rechazada por el contrato';
+      } else {
+        errorMessage += error.message;
+      }
+      
+      alert('❌ ' + errorMessage);
+      setLoading(false);
+    }
+  };
+
+  // 🔥 FUNCIÓN PARA VERIFICAR SI EL USUARIO PUEDE VOTAR
+  const canUserVote = () => {
+    return (
+      isConnected && 
+      tokenBalance >= VOTE_COST && 
+      !hasUserVoted && 
+      votingActive &&
+      candidates.length > 0
+    );
   };
 
   // Crear tokens (mint)
@@ -497,37 +527,6 @@ const VotingPlatform = () => {
     }
   };
 
-  // Votar
-  const vote = async (electionId, candidateIndex) => {
-    if (tokenBalance === 0) {
-      alert('Necesitas tokens VTE para votar');
-      return;
-    }
-
-    if (hasUserVoted) {
-      alert('Ya has votado en esta elección');
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      const candidateName = candidates[candidateIndex];
-      await votingContract.methods.vote(candidateName).send({ from: userAddress });
-      
-      alert('Voto registrado exitosamente!');
-      setVotedElections(new Set([...votedElections, electionId]));
-      setHasUserVoted(true);
-      
-      // Recargar datos
-      await loadVotingData();
-      setLoading(false);
-    } catch (error) {
-      console.error('Error voting:', error);
-      alert('Error al votar: ' + error.message);
-      setLoading(false);
-    }
-  };
-
   // Crear nueva elección (para compatibilidad con el admin screen)
   const createElection = async () => {
     if (!newElection.title || !newElection.description) {
@@ -586,6 +585,51 @@ const VotingPlatform = () => {
       console.error('Error resetting election:', error);
       alert('Error al resetear la elección: ' + error.message);
       setLoading(false);
+    }
+  };
+
+  // Función de debugging temporal
+  const debugContractState = async () => {
+    if (!votingContract) {
+      console.log("❌ Contract not connected");
+      return;
+    }
+
+    try {
+      console.log("🔍 DEBUGGING CONTRACT STATE:");
+      
+      // Estado básico
+      const isActive = await votingContract.methods.votingActive().call();
+      console.log("- Voting Active:", isActive);
+      
+      // Candidatos
+      const allCandidates = await votingContract.methods.getAllCandidates().call();
+      console.log("- Candidates:", allCandidates);
+      console.log("- Candidate Count:", allCandidates.length);
+      
+      // Resultados
+      const results = await votingContract.methods.getResults().call();
+      console.log("- Results:", results);
+      
+      // Votos totales
+      const totalVotes = await votingContract.methods.getTotalVotes().call();
+      console.log("- Total Votes:", totalVotes.toString());
+      
+      // Usuario ha votado
+      if (userAddress) {
+        const hasUserVotedState = await votingContract.methods.hasVoted(userAddress).call();
+        console.log("- User has voted:", hasUserVotedState);
+      }
+
+      // Estado de tokens
+      console.log("- User token balance:", tokenBalance);
+      console.log("- Can user vote:", canUserVote());
+      console.log("- Vote cost:", VOTE_COST);
+      
+      console.log("✅ Debug complete");
+      
+    } catch (error) {
+      console.error("❌ Debug error:", error);
     }
   };
 
@@ -655,19 +699,24 @@ const VotingPlatform = () => {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
             <p className="mt-4 text-gray-600 text-center">Procesando transacción...</p>
             <p className="text-xs text-gray-500 text-center mt-1">
-              Confirma la transacción en MetaMask
+              {tokenBalance < VOTE_COST && activeTab === 'user' ? 
+                'Quemando tokens VTE y registrando voto...' : 
+                'Confirma la transacción en MetaMask'
+              }
             </p>
           </div>
         </div>
       )}
 
-      {/* Header */}
+      {/* Header con información del sistema de tokens */}
       <Header 
         isConnected={isConnected}
         userAddress={userAddress}
         tokenBalance={tokenBalance}
         connectWallet={connectWallet}
         disconnectWallet={disconnectWallet}
+        voteCost={VOTE_COST}
+        canVote={canUserVote()}
       />
 
       {/* Navigation Tabs */}
@@ -683,9 +732,11 @@ const VotingPlatform = () => {
             isConnected={isConnected}
             elections={elections}
             votedElections={votedElections}
-            vote={vote}
+            vote={voteWithTokenBurn} // ← Usar la función de quemado
             tokenBalance={tokenBalance}
             hasUserVoted={hasUserVoted}
+            voteCost={VOTE_COST}
+            canUserVote={canUserVote}
           />
         )}
 
@@ -699,6 +750,8 @@ const VotingPlatform = () => {
             mintTokens={mintTokens}
             transferTokens={transferTokens}
             distributeTokens={distributeTokens}
+            burnAddress={BURN_ADDRESS}
+            voteCost={VOTE_COST}
           />
         )}
 
@@ -716,16 +769,18 @@ const VotingPlatform = () => {
             removeCandidate={removeCandidate}
             resetElection={resetElection}
             debugContractState={debugContractState}
+            voteCost={VOTE_COST}
+            burnAddress={BURN_ADDRESS}
           />
         )}
       </main>
 
-      {/* Footer */}
+      {/* Footer con información del sistema */}
       <footer className="bg-white border-t border-gray-200 mt-auto">
         <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="text-sm text-gray-500">
-              Plataforma de Voto Electrónico Basada en Blockchain
+              Plataforma de Voto Electrónico con Tokens VTE
             </div>
             <div className="flex items-center space-x-4 mt-4 md:mt-0">
               <div className="text-xs text-gray-400">
@@ -734,14 +789,20 @@ const VotingPlatform = () => {
               <div className="text-xs text-gray-400">
                 Token: {TOKEN_CONTRACT_ADDRESS.slice(0, 6)}...{TOKEN_CONTRACT_ADDRESS.slice(-4)}
               </div>
+              <div className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
+                Costo por voto: {VOTE_COST} VTE
+              </div>
               {isConnected && (
                 <div className="flex items-center space-x-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-xs text-green-600">Conectado a Blockchain</span>
+                 
                 </div>
               )}
             </div>
           </div>
+          
+          {/* Información adicional del sistema */}
+         
         </div>
       </footer>
     </div>
