@@ -1,6 +1,6 @@
-// src/screens/AdminScreen.jsx
+// src/screens/AdminScreen.jsx - ACTUALIZADO CON CAMPO DE FECHA
 import React, { useState } from 'react';
-import { Plus, Eye, Lock, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, Eye, Lock, Trash2, AlertTriangle, Calendar } from 'lucide-react';
 
 const AdminScreen = ({ 
   isConnected, 
@@ -12,7 +12,8 @@ const AdminScreen = ({
   votingActive,
   addCandidate,
   toggleVoting,
-  removeCandidate: removeCandidateFromContract // Renombrar para evitar conflicto
+  removeCandidate: removeCandidateFromContract,
+  electionMetadata // ✅ NUEVO: Metadatos de la elección actual
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
@@ -79,6 +80,17 @@ const AdminScreen = ({
   const cancelDelete = () => {
     setShowDeleteConfirm(false);
     setCandidateToDelete('');
+  };
+
+  // ✅ FORMATEAR FECHA PARA MOSTRAR
+  const formatDate = (dateString) => {
+    if (!dateString) return 'No definida';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
   };
 
   if (!isAuthenticated) {
@@ -180,6 +192,33 @@ const AdminScreen = ({
           <p className="text-yellow-800">Conecta tu wallet para acceder a las funciones de administrador</p>
         </div>
       )}
+
+      {/* ✅ INFORMACIÓN DE LA ELECCIÓN ACTUAL */}
+      {electionMetadata && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-blue-900 mb-3 flex items-center">
+            <Eye className="h-5 w-5 mr-2" />
+            Elección Actual Configurada
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white p-4 rounded-lg">
+              <label className="text-sm text-blue-600 font-medium">Título</label>
+              <p className="text-gray-900 font-semibold">{electionMetadata.title}</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg">
+              <label className="text-sm text-blue-600 font-medium">Descripción</label>
+              <p className="text-gray-900">{electionMetadata.description}</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg">
+              <label className="text-sm text-blue-600 font-medium">Fecha de Finalización</label>
+              <p className="text-gray-900 flex items-center">
+                <Calendar className="h-4 w-4 mr-1" />
+                {formatDate(electionMetadata.endDate)}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Gestión de Votación Actual */}
       <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
@@ -258,41 +297,68 @@ const AdminScreen = ({
         </div>
       </div>
 
-      {/* Agregar Múltiples Candidatos */}
+      {/* ✅ CREAR NUEVA ELECCIÓN CON FECHA */}
       <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">Agregar Múltiples Candidatos</h3>
+        <h3 className="text-xl font-semibold text-gray-900 mb-4">Configurar Nueva Elección</h3>
         
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Título de la votación (informativo)
-            </label>
-            <input
-              type="text"
-              value={newElection.title}
-              onChange={(e) => setNewElection({ ...newElection, title: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="Ej: Elección Municipal 2024"
-            />
+        <div className="space-y-6">
+          {/* Información básica */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Título de la elección *
+              </label>
+              <input
+                type="text"
+                value={newElection.title}
+                onChange={(e) => setNewElection({ ...newElection, title: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="Ej: Elección Municipal 2024"
+                required
+              />
+            </div>
+            
+            {/* ✅ CAMPO DE FECHA AGREGADO */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Fecha de finalización *
+              </label>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={newElection.endDate}
+                  onChange={(e) => setNewElection({ ...newElection, endDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pl-10"
+                  min={new Date().toISOString().split('T')[0]}
+                  required
+                />
+                <Calendar className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Fecha cuando terminará la votación
+              </p>
+            </div>
           </div>
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Descripción (informativo)
+              Descripción de la elección *
             </label>
             <textarea
               value={newElection.description}
               onChange={(e) => setNewElection({ ...newElection, description: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               rows="3"
-              placeholder="Descripción detallada de la votación..."
+              placeholder="Descripción detallada de la votación y sus objetivos..."
+              required
             />
           </div>
           
+          {/* Candidatos */}
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-3">
               <label className="block text-sm font-medium text-gray-700">
-                Candidatos/Opciones
+                Candidatos/Opciones de votación *
               </label>
               <button
                 onClick={addCandidateToForm}
@@ -303,20 +369,25 @@ const AdminScreen = ({
               </button>
             </div>
             
-            <div className="space-y-2">
+            <div className="space-y-3">
               {newElection.candidates.map((candidate, index) => (
-                <div key={index} className="flex items-center space-x-2">
+                <div key={index} className="flex items-center space-x-3">
+                  <div className="flex-shrink-0 w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-medium text-indigo-600">{index + 1}</span>
+                  </div>
                   <input
                     type="text"
                     value={candidate}
                     onChange={(e) => updateCandidate(index, e.target.value)}
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder={`Candidato ${index + 1}`}
+                    placeholder={`Nombre del candidato ${index + 1}`}
+                    required
                   />
                   {newElection.candidates.length > 2 && (
                     <button
                       onClick={() => removeCandidateFromForm(index)}
-                      className="text-red-600 hover:text-red-800 px-2 py-2"
+                      className="text-red-600 hover:text-red-800 p-1 rounded-lg hover:bg-red-50 transition-colors"
+                      title="Eliminar candidato"
                     >
                       ✕
                     </button>
@@ -324,18 +395,31 @@ const AdminScreen = ({
                 </div>
               ))}
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Mínimo 2 candidatos requeridos
-            </p>
+            
+            <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+              <p className="text-xs text-blue-700">
+                Mínimo 2 candidatos requeridos. 
+              </p>
+            </div>
           </div>
           
-          <button
-            onClick={createElection}
-            disabled={!isConnected}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white py-3 px-4 rounded-lg font-medium transition-colors"
-          >
-            Agregar Candidatos al Contrato
-          </button>
+          {/* Botón de crear */}
+          <div className="pt-4 border-t border-gray-200">
+            <button
+              onClick={createElection}
+              disabled={!isConnected || !newElection.title || !newElection.description || newElection.candidates.filter(c => c.trim()).length < 2}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
+            >
+              <Plus className="h-5 w-5" />
+              <span>Crear Elección y Agregar Candidatos</span>
+            </button>
+            
+            {(!newElection.title || !newElection.description || newElection.candidates.filter(c => c.trim()).length < 2) && (
+              <p className="text-xs text-gray-500 text-center mt-2">
+                Complete todos los campos obligatorios y agregue al menos 2 candidatos
+              </p>
+            )}
+          </div>
         </div>
       </div>
       
@@ -376,7 +460,7 @@ const AdminScreen = ({
           ) : (
             <div className="text-center py-8 text-gray-500">
               <div className="text-lg mb-2">No hay candidatos registrados</div>
-              <p className="text-sm">Agrega candidatos usando los formularios de arriba</p>
+              <p className="text-sm">Configura una nueva elección usando el formulario de arriba</p>
             </div>
           )}
         </div>
@@ -393,7 +477,7 @@ const AdminScreen = ({
       {/* Lista de Elecciones Existentes */}
       <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-semibold text-gray-900">Votaciones en Blockchain</h3>
+          <h3 className="text-xl font-semibold text-gray-900">Estado de la Votación</h3>
           <div className="flex items-center space-x-2 text-sm text-gray-500">
             <Eye className="h-4 w-4" />
             <span>Vista de Administrador</span>
@@ -409,9 +493,12 @@ const AdminScreen = ({
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                     election.status === 'active' 
                       ? 'bg-green-100 text-green-800' 
+                      : election.status === 'loading'
+                      ? 'bg-blue-100 text-blue-800'
                       : 'bg-gray-100 text-gray-800'
                   }`}>
-                    {election.status === 'active' ? 'Activa' : 'Finalizada'}
+                    {election.status === 'active' ? 'Activa' : 
+                     election.status === 'loading' ? 'Cargando...' : 'Finalizada'}
                   </span>
                   <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                     ID: {election.id}
@@ -421,28 +508,39 @@ const AdminScreen = ({
               
               <p className="text-gray-600 text-sm mb-3">{election.description}</p>
               
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-                {election.candidates.map((candidate, index) => (
-                  <div key={index} className="bg-gray-50 p-2 rounded border">
-                    <div className="font-medium text-gray-900">{candidate}</div>
-                    <div className="text-indigo-600 font-semibold">{election.votes[index]} votos</div>
-                    <div className="text-xs text-gray-500">
-                      {election.totalVotes > 0 
-                        ? `${((election.votes[index] / election.totalVotes) * 100).toFixed(1)}%`
-                        : '0%'
-                      }
+              {election.candidates && election.candidates.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                  {election.candidates.map((candidate, index) => (
+                    <div key={index} className="bg-gray-50 p-2 rounded border">
+                      <div className="font-medium text-gray-900">{candidate}</div>
+                      <div className="text-indigo-600 font-semibold">
+                        {election.votes && election.votes[index] ? election.votes[index] : 0} votos
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {election.totalVotes > 0 
+                          ? `${(((election.votes && election.votes[index] ? election.votes[index] : 0) / election.totalVotes) * 100).toFixed(1)}%`
+                          : '0%'
+                        }
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-gray-500 bg-gray-50 rounded">
+                  <p className="text-sm">No hay candidatos configurados</p>
+                </div>
+              )}
               
               <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between items-center">
                 <span className="text-sm text-gray-500 font-medium">
-                  Total: {election.totalVotes} votos
+                  Total: {election.totalVotes || 0} votos
                 </span>
-                <span className="text-sm text-gray-500">
-                  Finaliza: {new Date(election.endDate).toLocaleDateString()}
-                </span>
+                <div className="flex items-center space-x-4">
+                  <span className="text-sm text-gray-500 flex items-center">
+                    <Calendar className="h-4 w-4 mr-1" />
+                    Finaliza: {formatDate(election.endDate)}
+                  </span>
+                </div>
               </div>
             </div>
           ))}
@@ -450,7 +548,14 @@ const AdminScreen = ({
           {elections.length === 0 && isConnected && (
             <div className="text-center py-8 text-gray-500">
               <div className="text-lg mb-2">No hay votaciones creadas aún</div>
-              <p className="text-sm">Agrega candidatos y activa la votación para comenzar</p>
+              <p className="text-sm">Configura una nueva elección usando el formulario de arriba</p>
+            </div>
+          )}
+          
+          {!isConnected && (
+            <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+              <div className="text-lg mb-2">Conecta tu wallet</div>
+              <p className="text-sm">Necesitas conectar tu wallet para ver el estado completo de las votaciones</p>
             </div>
           )}
         </div>

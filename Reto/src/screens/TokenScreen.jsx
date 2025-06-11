@@ -1,6 +1,6 @@
-// src/screens/TokenScreen.jsx
+// src/screens/TokenScreen.jsx - CORREGIDO SIN ERRORES JSX
 import React, { useState } from 'react';
-import { Coins, Send, Users, Plus, Wallet } from 'lucide-react';
+import { Coins, Send, Users, Plus, Wallet, Lock } from 'lucide-react';
 
 const TokenScreen = ({ 
   isConnected, 
@@ -10,8 +10,16 @@ const TokenScreen = ({
   loadTokenBalance,
   mintTokens,
   transferTokens,
-  distributeTokens
+  distributeTokens,
+  burnAddress,
+  voteCost
 }) => {
+  // Estados para autenticación de administrador
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  
+  // Estados para formularios
   const [mintData, setMintData] = useState({
     recipient: '',
     amount: ''
@@ -27,6 +35,26 @@ const TokenScreen = ({
     amount: ''
   });
 
+  // Manejar autenticación
+  const handleAuth = (e) => {
+    e.preventDefault();
+    if (password === '1116661') {
+      setIsAuthenticated(true);
+      setAuthError('');
+    } else {
+      setAuthError('Contraseña incorrecta');
+      setPassword('');
+    }
+  };
+
+  // Cerrar sesión de admin
+  const logout = () => {
+    setIsAuthenticated(false);
+    setPassword('');
+    setAuthError('');
+  };
+
+  // Funciones para distribución masiva
   const addRecipient = () => {
     setDistributionData({
       ...distributionData,
@@ -47,6 +75,7 @@ const TokenScreen = ({
     }
   };
 
+  // Handlers para acciones de tokens
   const handleMint = async () => {
     if (!mintData.recipient || !mintData.amount) {
       alert('Por favor completa todos los campos');
@@ -94,10 +123,72 @@ const TokenScreen = ({
     }
   };
 
-  if (!isConnected) {
+  // Pantalla de autenticación
+  if (!isAuthenticated) {
     return (
       <div className="space-y-8">
         <h2 className="text-3xl font-bold text-gray-900">Gestión de Tokens</h2>
+        
+        <div className="max-w-md mx-auto">
+          <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-200">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Lock className="h-8 w-8 text-indigo-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900">Acceso Restringido</h3>
+              <p className="text-gray-600 mt-2">Ingresa la contraseña de administrador</p>
+            </div>
+            
+            <form onSubmit={handleAuth} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Contraseña de Administrador
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Ingresa la contraseña"
+                  required
+                />
+                {authError && (
+                  <p className="text-red-600 text-sm mt-1">{authError}</p>
+                )}
+              </div>
+              
+              <button
+                type="submit"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+              >
+                Acceder
+              </button>
+            </form>
+            
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+              <p className="text-xs text-gray-500 text-center">
+                Solo los administradores autorizados pueden acceder a esta sección
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Pantalla cuando no hay wallet conectada
+  if (!isConnected) {
+    return (
+      <div className="space-y-8">
+        <div className="flex items-center justify-between">
+          <h2 className="text-3xl font-bold text-gray-900">Gestión de Tokens VTE</h2>
+          <button
+            onClick={logout}
+            className="text-red-600 hover:text-red-800 text-sm font-medium transition-colors"
+          >
+            Cerrar Sesión Admin
+          </button>
+        </div>
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
           <Wallet className="h-12 w-12 text-yellow-600 mx-auto mb-4" />
           <p className="text-yellow-800 text-lg">Conecta tu wallet para gestionar tokens</p>
@@ -106,18 +197,27 @@ const TokenScreen = ({
     );
   }
 
+  // Pantalla principal de gestión
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold text-gray-900">Gestión de Tokens VTE</h2>
-        <div className="bg-indigo-100 px-4 py-2 rounded-lg">
-          <span className="text-sm text-indigo-800 font-medium">
-            Balance: {tokenBalance} VTE
-          </span>
+        <div className="flex items-center space-x-4">
+          <div className="bg-indigo-100 px-4 py-2 rounded-lg">
+            <span className="text-sm text-indigo-800 font-medium">
+              Balance: {tokenBalance} VTE
+            </span>
+          </div>
+          <button
+            onClick={logout}
+            className="text-red-600 hover:text-red-800 text-sm font-medium transition-colors"
+          >
+            Cerrar Sesión Admin
+          </button>
         </div>
       </div>
 
-      {/* Token Info */}
+      {/* Información del Token */}
       <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
         <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
           <Coins className="h-5 w-5 mr-2" />
@@ -139,7 +239,7 @@ const TokenScreen = ({
         </div>
       </div>
 
-      {/* Mint Tokens */}
+      {/* Crear Tokens */}
       <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
         <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
           <Plus className="h-5 w-5 mr-2" />
@@ -180,7 +280,7 @@ const TokenScreen = ({
         </div>
       </div>
 
-      {/* Transfer Tokens */}
+      {/* Transferir Tokens */}
       <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
         <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
           <Send className="h-5 w-5 mr-2" />
@@ -222,7 +322,7 @@ const TokenScreen = ({
         </div>
       </div>
 
-      {/* Distribute Tokens */}
+      {/* Distribuir Tokens */}
       <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
         <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
           <Users className="h-5 w-5 mr-2" />

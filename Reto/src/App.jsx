@@ -1,4 +1,4 @@
-// src/App.jsx
+// src/App.jsx - CORRECCIONES APLICADAS
 import React, { useState, useEffect } from 'react';
 import Web3 from 'web3';
 import "tailwindcss";
@@ -189,7 +189,7 @@ const TOKEN_CONTRACT_ABI = [
 ];
 
 // Direcciones de los contratos (reemplaza con las tuyas después de deployar)
-const VOTING_CONTRACT_ADDRESS = "0xcc42105EBf3a54371F6B380955946818BcbA1519";
+const VOTING_CONTRACT_ADDRESS = "0x60f4C54f88C160D1619A4168316351494b23Aa5A";
 const TOKEN_CONTRACT_ADDRESS = "0x5Cd4e9d0ffad11dDd497029E8720d538Bc8Bd479"; 
 
 const VotingPlatform = () => {
@@ -205,12 +205,19 @@ const VotingPlatform = () => {
   const [loading, setLoading] = useState(false);
   const [votedElections, setVotedElections] = useState(new Set());
   
+  // ✅ NUEVO: Estado para almacenar datos de elección localmente
+  const [electionMetadata, setElectionMetadata] = useState({
+    title: 'Elección Principal',
+    description: 'Votación principal del sistema',
+    endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  });
+  
   // Estado para nueva elección
   const [newElection, setNewElection] = useState({
     title: '',
     description: '',
     candidates: ['', ''],
-    duration: 7
+    endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   });
 
   // Estados para votación activa
@@ -218,6 +225,57 @@ const VotingPlatform = () => {
   const [candidates, setCandidates] = useState([]);
   const [voteCounts, setVoteCounts] = useState([]);
   const [hasUserVoted, setHasUserVoted] = useState(false);
+
+  // ✅ FUNCIÓN SEPARADA: Cargar datos básicos de la votación (sin wallet)
+  const loadBasicVotingData = async () => {
+    try {
+      if (!web3) {
+        // Crear instancia de Web3 en modo lectura (sin wallet)
+        const web3Instance = new Web3('https://sepolia.infura.io/v3/YOUR_INFURA_KEY' || window.ethereum);
+        const votingContractInstance = new web3Instance.eth.Contract(VOTING_CONTRACT_ABI, VOTING_CONTRACT_ADDRESS);
+        
+        // Verificar si la votación está activa
+        const isActive = await votingContractInstance.methods.votingActive().call();
+        setVotingActive(isActive);
+        
+        // Obtener candidatos y resultados
+        const results = await votingContractInstance.methods.getResults().call();
+        setCandidates(results.candidateNames || []);
+        setVoteCounts(results.voteCounts ? results.voteCounts.map(count => parseInt(count)) : []);
+        
+        // ✅ USAR DATOS DEL FORMULARIO si existen candidatos
+        if (results.candidateNames && results.candidateNames.length > 0) {
+          const totalVotes = results.voteCounts.reduce((sum, count) => sum + parseInt(count), 0);
+          const election = {
+            id: 1,
+            title: electionMetadata.title, // ← USAR DATOS GUARDADOS
+            description: electionMetadata.description, // ← USAR DATOS GUARDADOS
+            candidates: results.candidateNames,
+            votes: results.voteCounts.map(count => parseInt(count)),
+            status: isActive ? 'active' : 'finished',
+            endDate: electionMetadata.endDate, // ← USAR FECHA GUARDADA
+            totalVotes: totalVotes
+          };
+          setElections([election]);
+        } else {
+          setElections([]);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading basic voting data:', error);
+      // En caso de error, mostrar mensaje informativo
+      setElections([{
+        id: 0,
+        title: 'Cargando votación...',
+        description: 'Conectando con el contrato de votación',
+        candidates: [],
+        votes: [],
+        status: 'loading',
+        endDate: new Date().toISOString().split('T')[0],
+        totalVotes: 0
+      }]);
+    }
+  };
 
   // Conectar con MetaMask
   const connectWallet = async () => {
@@ -274,7 +332,7 @@ const VotingPlatform = () => {
     }
   };
 
-  // Cargar datos de votación
+  // Cargar datos de votación (con wallet conectada)
   const loadVotingData = async (votingContractInstance = votingContract, address = userAddress) => {
     try {
       if (votingContractInstance) {
@@ -282,20 +340,14 @@ const VotingPlatform = () => {
         const isActive = await votingContractInstance.methods.votingActive().call();
         setVotingActive(isActive);
         
-        // Verificar si el usuario ya votó EN LA VERSIÓN ACTUAL de la elección
+        // Verificar si el usuario ya votó
         if (address) {
           let userHasVoted = false;
           try {
-            // Intentar usar la nueva función si existe
-            userHasVoted = await votingContractInstance.methods.hasVotedInCurrentElection(address).call();
+            userHasVoted = await votingContractInstance.methods.hasVoted(address).call();
           } catch (error) {
-            // Fallback a la función original si no existe la nueva
-            try {
-              userHasVoted = await votingContractInstance.methods.hasVoted(address).call();
-            } catch (err) {
-              console.log("Error checking vote status:", err);
-              userHasVoted = false;
-            }
+            console.log("Error checking vote status:", error);
+            userHasVoted = false;
           }
           setHasUserVoted(userHasVoted);
         }
@@ -305,17 +357,17 @@ const VotingPlatform = () => {
         setCandidates(results.candidateNames || []);
         setVoteCounts(results.voteCounts ? results.voteCounts.map(count => parseInt(count)) : []);
         
-        // Simular elecciones para mantener compatibilidad con el UI existente
+        // ✅ USAR DATOS DEL FORMULARIO en lugar de hardcode
         if (results.candidateNames && results.candidateNames.length > 0) {
           const totalVotes = results.voteCounts.reduce((sum, count) => sum + parseInt(count), 0);
           const election = {
             id: 1,
-            title: 'Elección Principal',
-            description: 'Votación principal del sistema',
+            title: electionMetadata.title, // ← USAR DATOS GUARDADOS
+            description: electionMetadata.description, // ← USAR DATOS GUARDADOS
             candidates: results.candidateNames,
             votes: results.voteCounts.map(count => parseInt(count)),
             status: isActive ? 'active' : 'finished',
-            endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            endDate: electionMetadata.endDate, // ← USAR FECHA GUARDADA
             totalVotes: totalVotes
           };
           setElections([election]);
@@ -392,7 +444,7 @@ const VotingPlatform = () => {
       
       // ✅ PASO 5: RECARGAR DATOS
       await loadVotingData();
-      await loadTokenBalance(); // ← Balance reducido
+      await loadTokenBalance();
       
       setLoading(false);
       
@@ -484,6 +536,8 @@ const VotingPlatform = () => {
       await votingContract.methods.addCandidate(candidateName).send({ from: userAddress });
       alert('Candidato agregado exitosamente!');
       await loadVotingData();
+      // ✅ También recargar datos básicos
+      await loadBasicVotingData();
       setLoading(false);
     } catch (error) {
       console.error('Error adding candidate:', error);
@@ -504,6 +558,8 @@ const VotingPlatform = () => {
       await votingContract.methods.removeCandidate(candidateName).send({ from: userAddress });
       alert('Candidato eliminado exitosamente!');
       await loadVotingData();
+      // ✅ También recargar datos básicos
+      await loadBasicVotingData();
       setLoading(false);
     } catch (error) {
       console.error('Error removing candidate:', error);
@@ -519,6 +575,8 @@ const VotingPlatform = () => {
       await votingContract.methods.toggleVoting().send({ from: userAddress });
       alert(`Votación ${votingActive ? 'desactivada' : 'activada'} exitosamente!`);
       await loadVotingData();
+      // ✅ También recargar datos básicos
+      await loadBasicVotingData();
       setLoading(false);
     } catch (error) {
       console.error('Error toggling voting:', error);
@@ -527,7 +585,7 @@ const VotingPlatform = () => {
     }
   };
 
-  // Crear nueva elección (para compatibilidad con el admin screen)
+  // ✅ CREAR NUEVA ELECCIÓN CON DATOS GUARDADOS
   const createElection = async () => {
     if (!newElection.title || !newElection.description) {
       alert('Por favor completa todos los campos');
@@ -543,16 +601,29 @@ const VotingPlatform = () => {
     try {
       setLoading(true);
       
+      // ✅ GUARDAR METADATA DE LA ELECCIÓN
+      setElectionMetadata({
+        title: newElection.title,
+        description: newElection.description,
+        endDate: newElection.endDate
+      });
+      
       // Agregar cada candidato al contrato
       for (const candidate of validCandidates) {
         await votingContract.methods.addCandidate(candidate).send({ from: userAddress });
       }
       
       alert('Candidatos agregados exitosamente! Activa la votación cuando estés listo.');
-      setNewElection({ title: '', description: '', candidates: ['', ''], duration: 7 });
+      setNewElection({ 
+        title: '', 
+        description: '', 
+        candidates: ['', ''], 
+        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      });
       
       // Recargar datos
       await loadVotingData();
+      await loadBasicVotingData();
       setLoading(false);
     } catch (error) {
       console.error('Error creating election:', error);
@@ -578,8 +649,17 @@ const VotingPlatform = () => {
     try {
       setLoading(true);
       await votingContract.methods.resetElection().send({ from: userAddress });
+      
+      // ✅ RESETEAR METADATA LOCAL
+      setElectionMetadata({
+        title: 'Elección Principal',
+        description: 'Votación principal del sistema',
+        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      });
+      
       alert('Elección reseteada exitosamente!');
       await loadVotingData();
+      await loadBasicVotingData();
       setLoading(false);
     } catch (error) {
       console.error('Error resetting election:', error);
@@ -641,12 +721,16 @@ const VotingPlatform = () => {
     setVotingContract(null);
     setTokenContract(null);
     setTokenBalance(0);
-    setElections([]);
     setVotedElections(new Set());
-    setCandidates([]);
-    setVoteCounts([]);
     setHasUserVoted(false);
+    // ✅ MANTENER DATOS BÁSICOS DE VOTACIÓN VISIBLES
+    loadBasicVotingData();
   };
+
+  // ✅ CARGAR DATOS BÁSICOS AL INICIO
+  useEffect(() => {
+    loadBasicVotingData();
+  }, []);
 
   // Detectar cambios de cuenta en MetaMask
   useEffect(() => {
@@ -689,6 +773,15 @@ const VotingPlatform = () => {
       return () => clearInterval(interval);
     }
   }, [isConnected, votingContract, tokenContract]);
+
+  // ✅ CARGAR DATOS BÁSICOS CADA 30 SEGUNDOS PARA TODOS
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadBasicVotingData();
+    }, 30000); // 30 segundos
+
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 w-full flex flex-col">
@@ -771,6 +864,7 @@ const VotingPlatform = () => {
             debugContractState={debugContractState}
             voteCost={VOTE_COST}
             burnAddress={BURN_ADDRESS}
+            electionMetadata={electionMetadata}
           />
         )}
       </main>
@@ -795,14 +889,11 @@ const VotingPlatform = () => {
               {isConnected && (
                 <div className="flex items-center space-x-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                 
+                  <span className="text-xs text-green-600">Conectado</span>
                 </div>
               )}
             </div>
           </div>
-          
-          {/* Información adicional del sistema */}
-         
         </div>
       </footer>
     </div>
