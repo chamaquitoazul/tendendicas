@@ -12,7 +12,7 @@ const UserScreen = ({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold text-gray-900">Votaciones Activas</h2>
+        <h2 className="text-3xl font-bold text-gray-900">Votaciones Activa</h2>
         {!isConnected && (
           <div className="flex items-center space-x-2 text-amber-600 bg-amber-50 px-4 py-2 rounded-lg">
             <AlertCircle className="h-4 w-4" />
