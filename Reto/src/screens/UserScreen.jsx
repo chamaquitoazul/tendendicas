@@ -1,4 +1,4 @@
-// src/screens/UserScreen.jsx - ACTUALIZADO: Votaciones visibles sin wallet
+// src/screens/UserScreen.jsx - ACTUALIZADO PARA REFACTORIZACIÓN
 import React from 'react';
 import { Check, AlertCircle, Wallet, Eye, Clock, Users } from 'lucide-react';
 
@@ -6,13 +6,13 @@ const UserScreen = ({
   isConnected, 
   elections, 
   votedElections, 
-  vote, 
+  vote, // ← Esta función ahora viene del componente VotingActions refactorizado
   tokenBalance,
   hasUserVoted,
   voteCost,
   canUserVote
 }) => {
-  // ✅ FUNCIÓN PARA MANEJAR INTENTO DE VOTO SIN WALLET
+  // ✅ FUNCIÓN PARA MANEJAR INTENTO DE VOTO SIN WALLET (Simplificada)
   const handleVoteAttempt = (electionId, candidateIndex) => {
     if (!isConnected) {
       alert('⚠️ Debes conectar tu wallet para poder votar.\n\nPasos:\n1. Conecta tu wallet MetaMask\n2. Asegúrate de tener tokens VTE\n3. Selecciona tu candidato preferido');
@@ -24,7 +24,7 @@ const UserScreen = ({
       return;
     }
     
-    // Si todo está bien, proceder con el voto
+    // ✅ CAMBIO: Usar la función de voto refactorizada
     vote(electionId, candidateIndex);
   };
 
@@ -56,7 +56,7 @@ const UserScreen = ({
 
   return (
     <div className="space-y-6">
-      {/* ✅ HEADER MEJORADO CON INFORMACIÓN PARA USUARIOS SIN WALLET */}
+      {/* Header con información para usuarios */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold text-gray-900">Votaciones Disponibles</h2>
@@ -68,7 +68,7 @@ const UserScreen = ({
           </p>
         </div>
         
-        {/* ✅ INDICADORES DE ESTADO */}
+        {/* Indicadores de estado */}
         <div className="flex flex-col items-end space-y-2">
           {!isConnected && (
             <div className="flex items-center space-x-2 text-amber-600 bg-amber-50 px-4 py-2 rounded-lg">
@@ -100,7 +100,7 @@ const UserScreen = ({
         </div>
       </div>
 
-      {/* ✅ LISTA DE ELECCIONES - VISIBLE SIEMPRE */}
+      {/* Lista de elecciones - VISIBLE SIEMPRE */}
       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
         {elections.map((election) => (
           <div key={election.id} className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 hover:shadow-xl transition-shadow">
@@ -142,7 +142,8 @@ const UserScreen = ({
                     const votes = election.votes && election.votes[index] ? election.votes[index] : 0;
                     const percentage = election.totalVotes > 0 ? (votes / election.totalVotes) * 100 : 0;
                     const userVoted = votedElections.has(election.id);
-                    const canVote = isConnected && !userVoted && election.status === 'active' && tokenBalance >= voteCost;
+                    // ✅ CAMBIO: Usar canUserVote del props
+                    const canVote = canUserVote && election.status === 'active';
                     
                     return (
                       <div key={index} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
@@ -222,7 +223,7 @@ const UserScreen = ({
         ))}
       </div>
       
-      {/* ✅ ESTADO CUANDO NO HAY ELECCIONES */}
+      {/* Estado cuando no hay elecciones */}
       {elections.length === 0 && (
         <div className="text-center py-16">
           <div className="max-w-md mx-auto">
@@ -241,8 +242,6 @@ const UserScreen = ({
           </div>
         </div>
       )}
-
-
     </div>
   );
 };
