@@ -13,7 +13,7 @@ const AdminScreen = ({
   addCandidate,
   toggleVoting,
   removeCandidate: removeCandidateFromContract,
-  electionMetadata // ✅ NUEVO: Metadatos de la elección actual
+  electionMetadata, 
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
@@ -499,9 +499,6 @@ const AdminScreen = ({
                   }`}>
                     {election.status === 'active' ? 'Activa' : 
                      election.status === 'loading' ? 'Cargando...' : 'Finalizada'}
-                  </span>
-                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                    ID: {election.id}
                   </span>
                 </div>
               </div>
