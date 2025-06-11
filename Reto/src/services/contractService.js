@@ -2,7 +2,7 @@
 import Web3 from 'web3';
 
 // Direcciones de los contratos
-export const VOTING_CONTRACT_ADDRESS = "0xe56A84AFA2ADe479CAa2f517b02CF55c0E0E8747"; 
+export const VOTING_CONTRACT_ADDRESS = "0x0CB5266c7DE8f434790FBe1f17df4620FF665DC1"; 
 export const TOKEN_CONTRACT_ADDRESS = "0x5Cd4e9d0ffad11dDd497029E8720d538Bc8Bd479";
 
 // Constantes del sistema
